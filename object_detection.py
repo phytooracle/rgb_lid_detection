@@ -33,9 +33,10 @@ def get_args():
         description='FLIR plant detection',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('dir',
-                        metavar='img_list',
-                        help='Directory containing files')
+    parser.add_argument('image',
+                        metavar='image/s',
+                        nargs='+',
+                        help='Image/s (ex: <dir>/*.tif)')
 
     parser.add_argument('-m',
                         '--model',
@@ -52,42 +53,7 @@ def get_args():
                         type=str,
                         default='detect_out')
 
-    parser.add_argument('-g',
-                        '--geojson',
-                        help='GeoJSON containing plot boundaries',
-                        metavar='str',
-                        type=str,
-                        default=None,
-                        required=True)
-
-    parser.add_argument('-c',
-                        '--detect_class',
-                        nargs='+',
-                        help='Classes to detect',
-                        metavar='detect_class',
-                        type=list,
-                        default=['lettuce'])
-
-    parser.add_argument('-d',
-                        '--date',
-                        help='Scan date',
-                        metavar='date',
-                        type=str,
-                        default=None,
-                        required=True)
-
-    parser.add_argument('-t',
-                        '--type',
-                        help='Specify if FLIR or RGB images',
-                        required=True,
-                        choices=['FLIR', 'RGB'])
-
-    args = parser.parse_args()
-
-    if '/' not in args.dir[-1]:
-        args.dir = args.dir + '/'
-
-    return args
+    return parser.parse_args()
 
 
 # --------------------------------------------------
@@ -95,61 +61,6 @@ def get_min_max(box):
     min_x, min_y, max_x, max_y = int(box[0]), int(box[1]), int(box[2]), int(box[3])
 
     return min_x, min_y, max_x, max_y
-
-
-# --------------------------------------------------
-def get_trt_zones():
-    trt_zone_1 = []
-    trt_zone_2 = []
-    trt_zone_3 = []
-
-    for i in range(3, 19):
-        for i2 in range(2, 48):
-            plot = f'MAC_Field_Scanner_Season_10_Range_{i}_Column_{i2}'
-            trt_zone_1.append(str(plot))
-
-    for i in range(20, 36):
-        for i2 in range(2, 48):
-            plot = f'MAC_Field_Scanner_Season_10_Range_{i}_Column_{i2}'
-            trt_zone_2.append(str(plot))
-
-    for i in range(37, 53):
-        for i2 in range(2, 48):
-            plot = f'MAC_Field_Scanner_Season_10_Range_{i}_Column_{i2}'
-            trt_zone_3.append(str(plot))
-
-    return trt_zone_1, trt_zone_2, trt_zone_3
-
-
-# --------------------------------------------------
-def find_trt_zone(plot_name):
-    trt_zone_1, trt_zone_2, trt_zone_3 = get_trt_zones()
-
-    if plot_name in trt_zone_1:
-        trt = 'treatment 1'
-
-    elif plot_name in trt_zone_2:
-        trt = 'treatment 2'
-
-    elif plot_name in trt_zone_3:
-        trt = 'treatment 3'
-
-    else:
-        trt = 'border'
-
-    return trt
-
-
-# --------------------------------------------------
-def get_genotype(plot, geojson):
-    with open(geojson) as f:
-        data = json.load(f)
-
-    for feat in data['features']:
-        if feat.get('properties')['ID']==plot:
-            genotype = feat.get('properties').get('genotype')
-
-    return genotype
 
 
 # --------------------------------------------------
@@ -167,14 +78,9 @@ def open_image(img_path):
 
     args = get_args()
 
-    if args.type == 'FLIR':
-        a_img = tifi.imread(img_path)
-        a_img = cv2.cvtColor(a_img, cv2.COLOR_GRAY2BGR)
-        a_img = cv2.normalize(a_img, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-
-    elif args.type == 'RGB':
-        a_img = tifi.imread(img_path)
-        a_img = np.array(a_img)
+    a_img = tifi.imread(img_path)
+    a_img = cv2.cvtColor(a_img, cv2.COLOR_BGR2RGB)
+    a_img = np.array(a_img)
 
     return a_img
 
@@ -185,67 +91,39 @@ def process_image(img):
     cont_cnt = 0
     lett_dict = {}
 
-    model = core.Model.load(args.model, args.detect_class)
+    model = core.Model.load(args.model, ['lid'])
 
-    plot = img.split('/')[-1].replace('_ortho.tif', '')
-    trt_zone = find_trt_zone(plot)
-    plot_name = plot.replace('_', ' ')
-    print(f'Image: {plot_name}')
-    genotype = get_genotype(plot_name, args.geojson)
     a_img = open_image(img)
     df = pd.DataFrame()
     try:
         predictions = model.predict(a_img)
         labels, boxes, scores = predictions
+        print(f'Image: {img}\nPredictions: {boxes}\nScores: {scores}')
         copy = a_img.copy()
 
         for i, box in enumerate(boxes):
-            if scores[i] >= 0.1:
+            if scores[i] >= 0.5:
                 cont_cnt += 1
 
                 min_x, min_y, max_x, max_y = get_min_max(box)
                 center_x, center_y = ((max_x+min_x)/2, (max_y+min_y)/2)
-                nw_lat, nw_lon = pixel2geocoord(img, min_x, max_y)
-                se_lat, se_lon = pixel2geocoord(img, max_x, min_y)
-
-                nw_e, nw_n, _, _ = utm.from_latlon(nw_lat, nw_lon, 12, 'N')
-                se_e, se_n, _, _ = utm.from_latlon(se_lat, se_lon, 12, 'N')
-
-                area_sq = (se_e - nw_e) * (se_n - nw_n)
-                lat, lon = pixel2geocoord(img, center_x, center_y)
                 lett_dict[cont_cnt] = {
-                    'date': args.date,
-                    'treatment': trt_zone,
-                    'plot': plot,
-                    'genotype': genotype,
-                    'lon': lon,
-                    'lat': lat,
+                    'image': img,
+                    'center_x': int(center_x),
+                    'center_y': int(center_y),
                     'min_x': min_x,
                     'max_x': max_x,
                     'min_y': min_y,
-                    'max_y': max_y,
-                    'nw_lat': nw_lat,
-                    'nw_lon': nw_lon,
-                    'se_lat': se_lat,
-                    'se_lon': se_lon,
-                    'bounding_area_m2': area_sq
+                    'max_y': max_y
                 }
 
-        df = pd.DataFrame.from_dict(lett_dict, orient='index', columns=['date',
-                                                                    'treatment',
-                                                                    'plot',
-                                                                    'genotype',
-                                                                    'lon',
-                                                                    'lat',
+        df = pd.DataFrame.from_dict(lett_dict, orient='index', columns=['image',
+                                                                    'center_x',
+                                                                    'center_y',
                                                                     'min_x',
                                                                     'max_x',
                                                                     'min_y',
-                                                                    'max_y',
-                                                                    'nw_lat',
-                                                                    'nw_lon',
-                                                                    'se_lat',
-                                                                    'se_lon',
-                                                                    'bounding_area_m2']).set_index('date')
+                                                                    'max_y']).set_index('image')
     except:
         pass
 
@@ -261,15 +139,13 @@ def main():
     if not os.path.isdir(args.outdir):
         os.makedirs(args.outdir)
 
-    img_list = glob.glob(f'{args.dir}*.tif')
     major_df = pd.DataFrame()
 
     with multiprocessing.Pool(multiprocessing.cpu_count()) as p:
-        #df = p.map(process_image, img_list)
-        df = p.map(process_image, img_list)
+        df = p.map(process_image, args.image)
         major_df = major_df.append(df)
 
-    out_path = os.path.join(args.outdir, f'{args.date}_detection.csv')
+    out_path = os.path.join(args.outdir, f'lid_detection.csv')
     major_df.to_csv(out_path)
 
     print(f'Done, see outputs in ./{args.outdir}.')
