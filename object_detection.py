@@ -81,7 +81,6 @@ def open_image(img_path):
     args = get_args()
 
     a_img = tifi.imread(img_path)
-    a_img = cv2.cvtColor(a_img, cv2.COLOR_BGR2RGB)
     a_img = np.array(a_img)
 
     return a_img
@@ -104,7 +103,7 @@ def process_image(img):
         copy = a_img.copy()
 
         for i, box in enumerate(boxes):
-            if scores[i] >= 0.999:
+            if scores[i] >= 0.998:
                 cont_cnt += 1
 
                 min_x, min_y, max_x, max_y = get_min_max(box)
