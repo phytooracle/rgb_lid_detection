@@ -35,8 +35,8 @@ def get_args():
 
     parser.add_argument('dir',
                         metavar='dir',
-                        nargs='+',
-                        help='Directory containing TIFF images')
+                        #nargs='+',
+                        help='Single TIFF image or directory path containing TIFF images')
 
     parser.add_argument('-m',
                         '--model',
@@ -76,16 +76,6 @@ def get_min_max(box):
 
 
 # --------------------------------------------------
-def pixel2geocoord(one_img, x_pix, y_pix):
-    ds = gdal.Open(one_img)
-    c, a, b, f, d, e = ds.GetGeoTransform()
-    lon = a * int(x_pix) + b * int(y_pix) + a * 0.5 + b * 0.5 + c
-    lat = d * int(x_pix) + e * int(y_pix) + d * 0.5 + e * 0.5 + f
-
-    return (lat, lon)
-
-
-# --------------------------------------------------
 def open_image(img_path):
 
     args = get_args()
@@ -114,7 +104,7 @@ def process_image(img):
         copy = a_img.copy()
 
         for i, box in enumerate(boxes):
-            if scores[i] >= 0.5:
+            if scores[i] >= 0.9:
                 cont_cnt += 1
 
                 min_x, min_y, max_x, max_y = get_min_max(box)
@@ -151,11 +141,15 @@ def main():
     if not os.path.isdir(args.outdir):
         os.makedirs(args.outdir)
 
-    #img_list = glob.glob(f'{args.dir}*.tif')
+    img_list = glob.glob(f'{args.dir}*.tif')
+
+    if not img_list:
+        img_list = [args.dir]
+
     major_df = pd.DataFrame()
 
     with multiprocessing.Pool(args.cpu) as p:
-        df = p.map(process_image, args.dir)
+        df = p.map(process_image, img_list)
         major_df = major_df.append(df)
 
     out_path = os.path.join(args.outdir, f'lid_detection.csv')
