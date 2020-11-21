@@ -35,6 +35,7 @@ def get_args():
 
     parser.add_argument('dir',
                         metavar='dir',
+                        nargs='+',
                         help='Directory containing TIFF images')
 
     parser.add_argument('-m',
@@ -51,6 +52,14 @@ def get_args():
                         metavar='outdir',
                         type=str,
                         default='detect_out')
+
+    parser.add_argument('-c',
+                        '--cpu',
+                        help='Number of CPUs to use',
+                        metavar='cpu',
+                        type=int,
+                        required=True,
+                        default=None)
 
     args = parser.parse_args()
 
@@ -142,11 +151,11 @@ def main():
     if not os.path.isdir(args.outdir):
         os.makedirs(args.outdir)
 
-    img_list = glob.glob(f'{args.dir}*.tif')
+    #img_list = glob.glob(f'{args.dir}*.tif')
     major_df = pd.DataFrame()
 
-    with multiprocessing.Pool(multiprocessing.cpu_count()) as p:
-        df = p.map(process_image, img_list)
+    with multiprocessing.Pool(args.cpu) as p:
+        df = p.map(process_image, args.dir)
         major_df = major_df.append(df)
 
     out_path = os.path.join(args.outdir, f'lid_detection.csv')
