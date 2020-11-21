@@ -2,7 +2,7 @@
 """
 Author : Emmanuel Gonzalez
 Date   : 2020-11-06
-Purpose: FLIR plant detection
+Purpose: RGB lid detection
 """
 
 import argparse
@@ -30,13 +30,12 @@ def get_args():
     """Get command-line arguments"""
 
     parser = argparse.ArgumentParser(
-        description='FLIR plant detection',
+        description='RGB lid detection',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('image',
-                        metavar='image/s',
-                        nargs='+',
-                        help='Image/s (ex: <dir>/*.tif)')
+    parser.add_argument('dir',
+                        metavar='dir',
+                        help='Directory containing TIFF images')
 
     parser.add_argument('-m',
                         '--model',
@@ -53,8 +52,12 @@ def get_args():
                         type=str,
                         default='detect_out')
 
-    return parser.parse_args()
+    args = parser.parse_args()
 
+    if '/' not in args.dir[-1]:
+        args.dir = args.dir + '/'
+
+    return args
 
 # --------------------------------------------------
 def get_min_max(box):
@@ -132,17 +135,18 @@ def process_image(img):
 
 # --------------------------------------------------
 def main():
-    """Detect plants in image"""
+    """Detect lid/s in images"""
 
     args = get_args()
 
     if not os.path.isdir(args.outdir):
         os.makedirs(args.outdir)
 
+    img_list = glob.glob(f'{args.dir}*.tif')
     major_df = pd.DataFrame()
 
     with multiprocessing.Pool(multiprocessing.cpu_count()) as p:
-        df = p.map(process_image, args.image)
+        df = p.map(process_image, img_list)
         major_df = major_df.append(df)
 
     out_path = os.path.join(args.outdir, f'lid_detection.csv')
