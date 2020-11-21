@@ -104,7 +104,7 @@ def process_image(img):
         copy = a_img.copy()
 
         for i, box in enumerate(boxes):
-            if scores[i] >= 0.9:
+            if scores[i] >= 0.98:
                 cont_cnt += 1
 
                 min_x, min_y, max_x, max_y = get_min_max(box)
@@ -116,7 +116,8 @@ def process_image(img):
                     'min_x': min_x,
                     'max_x': max_x,
                     'min_y': min_y,
-                    'max_y': max_y
+                    'max_y': max_y,
+                    'pred_score': scores[i]
                 }
 
         df = pd.DataFrame.from_dict(lett_dict, orient='index', columns=['image',
@@ -125,7 +126,8 @@ def process_image(img):
                                                                     'min_x',
                                                                     'max_x',
                                                                     'min_y',
-                                                                    'max_y']).set_index('image')
+                                                                    'max_y',
+                                                                    'pred_score']).set_index('image')
     except:
         pass
 
