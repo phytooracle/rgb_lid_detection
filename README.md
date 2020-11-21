@@ -1,4 +1,4 @@
-# RGB/FLIR Lettuce Detection
+# RGB Lid Detection
 ## Purpose
 Detection of ground control point (GCP) lids in RGB imagery. Detection is accomplished using the **[Detecto](https://detecto.readthedocs.io/en/latest/)** Python package. A Faster R-CNN detection network outputs predictions, which are collected and output in a CSV file.
 
