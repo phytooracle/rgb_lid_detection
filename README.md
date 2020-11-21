@@ -29,7 +29,7 @@ Directory containing geoTIFFs.
 ## Adapting the Script
                                         
 ## Running container using Singularity
-**[Click here](https://hub.docker.com/repository/docker/phytooracle/rgb_lid_detection)** to access more information on this container. 
+**[Click here](https://hub.docker.com/repository/docker/phytooracle/rgb_lid_detection)** to access this container. 
 
 ### Build the container:
 ```
