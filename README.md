@@ -25,8 +25,6 @@ Directory containing geoTIFFs.
 * **Optional Arguments:**
     * **Output directory:** -o, --outdir, default=detect_out
     * **Prediction threshold:** -pt, --prediction_threshold, default=0.998
-       
-## Adapting the Script
                                         
 ## Running container using Singularity
 **[Click here](https://hub.docker.com/repository/docker/phytooracle/rgb_lid_detection)** to access this container. 
